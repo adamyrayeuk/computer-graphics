@@ -204,7 +204,7 @@ function render() {
 
     // Jika bentuk yang dipilih adalah garis maka gunakan gl.LINES, selain itu bentuk akan disusun menggunakan TRIANGLE_FAN
     for(var i=0; i<numPolygons; i++) {
-      if (types[numPolygons] === 0){
+      if (types[i] === 0){
         gl.drawArrays(gl.LINES, start[i], numPositions[i]);
       } else {
         gl.drawArrays(gl.TRIANGLE_FAN, start[i], numPositions[i]);
