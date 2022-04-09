@@ -16,12 +16,28 @@
 in vec4 aPosition;
 in vec4 aColor;
 
+uniform vec4 uRotationQuaternion;
+
 out vec4 vColor;
+
+vec4 multq(vec4 a, vec4 b)
+{
+   return(vec4(a.x*b.x - dot(a.yzw, b.yzw), a.x*b.yzw+b.x*a.yzw+cross(b.yzw, a.yzw)));
+}
+
+vec4 invq(vec4 a)
+{
+   return(vec4(a.x, -a.yzw)/dot(a,a));
+}
 
 void main()
 {
-    gl_Position = aPosition;
-    vColor = aColor;
+  vec4 p;
+
+  p = vec4(0.0, aPosition.xyz);  // input point quaternion
+  p = multq(uRotationQuaternion, multq(p, invq(uRotationQuaternion))); // rotated point quaternion
+  gl_Position = vec4( p.yzw, 1.0); // convert back to homogeneous coordinates
+  vColor = aColor;
 }
 </script>
 

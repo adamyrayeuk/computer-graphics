@@ -3,23 +3,36 @@
 var canvas;
 var gl;
 
+var rotationQuaternion;
+var rotationQuaternionLoc;
+
+var angle = 0.0;
+var axis = vec3(0, 0, 1);
+
+var trackingMouse = false;
+var trackballMove = false;
+
+var lastPos = vec3(0, 0, 0);
+var curx, cury;
+var startX, startY;
+
 var vertices = [
     // Shape 1 (trapezoid)
-    vec2(-0.8, 0.2),            // 0
-    vec2(-0.2, 0.2),            // 1
-    vec2(-0.7, 0.5),            // 2
-    vec2(-0.3, 0.5),            // 3
+    vec4(-0.8, 0.2, 0.0, 1.0),            // 0
+    vec4(-0.2, 0.2, 0.0, 1.0),            // 1
+    vec4(-0.7, 0.5, 0.0, 1.0),            // 2
+    vec4(-0.3, 0.5, 0.0, 1.0),            // 3
 
     // Shape 2 (Square)
-    vec2(0.2, 0.2),             // 4
-    vec2(0.2, 0.5),             // 5
-    vec2(0.5, 0.2),             // 6
-    vec2(0.5, 0.5),             // 7
+    vec4(0.2, 0.2, 0.0, 1.0),             // 4
+    vec4(0.2, 0.5, 0.0, 1.0),             // 5
+    vec4(0.5, 0.2, 0.0, 1.0),             // 6
+    vec4(0.5, 0.5, 0.0, 1.0),             // 7
 
     // Shape 3 (Triangle)
-    vec2(0.0, 0.0),             // 8
-    vec2(-0.3, -0.3),           // 9
-    vec2(0.3, -0.3),            // 10
+    vec4(0.0, 0.0, 0.0, 1.0),             // 8
+    vec4(-0.3, -0.3, 0.0, 1.0),           // 9
+    vec4(0.3, -0.3, 0.0, 1.0),            // 10
 ];
 
 var vertexColors = [
@@ -53,6 +66,84 @@ var indices = [
 
 init();
 
+function multq(a, b) {
+    // vec4(a.x*b.x - dot(a.yzw, b.yzw), a.x*b.yzw+b.x*a.yzw+cross(b.yzw, a.yzw))
+
+    var s = vec3(a[1], a[2], a[3]);
+    var t = vec3(b[1], b[2], b[3]);
+
+    return (vec4(a[0] * b[0] - dot(s, t), add(cross(t, s), add(mult(a[0], t), mult(b[0], s)))));
+}
+
+
+
+function trackballView(x, y) {
+    var d, a;
+    var v = vec3();
+
+    v[0] = x;
+    v[1] = y;
+
+    d = v[0] * v[0] + v[1] * v[1];
+    if (d < 1.0)
+        v[2] = Math.sqrt(1.0 - d);
+    else {
+        v[2] = 0.0;
+        a = 1.0 / Math.sqrt(d);
+        v[0] *= a;
+        v[1] *= a;
+    }
+    return v;
+}
+
+function mouseMotion(x, y) {
+    var dx, dy, dz;
+
+    var curPos = trackballView(x, y);
+    if (trackingMouse) {
+        // dx = curPos[0] - lastPos[0];
+        // dy = curPos[1] - lastPos[1];
+        dz = curPos[2] - lastPos[2];
+
+        if (dz) {
+            //  angle =  0.01 * Math.sqrt(dx*dx + dy*dy + dz*dz);
+            angle = 0.01 * Math.sqrt(dz * dz);
+
+
+            //  axis[0] = lastPos[1]*curPos[2] - lastPos[2]*curPos[1];
+            //  axis[1] = lastPos[2]*curPos[0] - lastPos[0]*curPos[2];
+            axis[2] = lastPos[0] * curPos[1] - lastPos[1] * curPos[0];
+
+            //  lastPos[0] = curPos[0];
+            //  lastPos[1] = curPos[1];
+            lastPos[2] = curPos[2];
+        }
+    }
+    render();
+}
+
+function startMotion(x, y) {
+    trackingMouse = true;
+    startX = x;
+    startY = y;
+    curx = x;
+    cury = y;
+
+    lastPos = trackballView(x, y);
+    trackballMove = true;
+}
+
+function stopMotion(x, y) {
+    trackingMouse = false;
+    if (startX != x || startY != y) {
+    }
+    else {
+        angle = 0.0;
+        trackballMove = false;
+    }
+}
+
+
 function init() {
     canvas = document.getElementById("gl-canvas");
 
@@ -61,6 +152,8 @@ function init() {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.8, 0.8, 0.8, 1.0);
+
+    gl.enable(gl.DEPTH_TEST);
 
     //  Load shaders and initialize attribute buffers
     var program = initShaders(gl, "vertex-shader", "fragment-shader")
@@ -86,13 +179,46 @@ function init() {
     gl.bufferData(gl.ARRAY_BUFFER, flatten(vertices), gl.STATIC_DRAW);
 
     var positionLoc = gl.getAttribLocation(program, "aPosition");
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(positionLoc, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(positionLoc);
+
+    rotationQuaternion = vec4(1, 0, 0, 0);
+    rotationQuaternionLoc = gl.getUniformLocation(program, "uRotationQuaternion");
+    gl.uniform4fv(rotationQuaternionLoc, rotationQuaternion);
+
+    canvas.addEventListener("mousedown", function (event) {
+        var x = 2 * event.clientX / canvas.width - 1;
+        var y = 2 * (canvas.height - event.clientY) / canvas.height - 1;
+        startMotion(x, y);
+    });
+
+    canvas.addEventListener("mouseup", function (event) {
+        var x = 2 * event.clientX / canvas.width - 1;
+        var y = 2 * (canvas.height - event.clientY) / canvas.height - 1;
+        stopMotion(x, y);
+    });
+
+    canvas.addEventListener("mousemove", function (event) {
+
+        var x = 2 * event.clientX / canvas.width - 1;
+        var y = 2 * (canvas.height - event.clientY) / canvas.height - 1;
+        mouseMotion(x, y);
+    });
 
     render();
 }
 
 function render() {
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (trackballMove) {
+        axis = normalize(axis);
+        var c = Math.cos(angle / 2.0);
+        var s = Math.sin(angle / 2.0);
+
+        var rotation = vec4(c, s * axis[0], s * axis[1], s * axis[2]);
+        rotationQuaternion = multq(rotationQuaternion, rotation);
+        gl.uniform4fv(rotationQuaternionLoc, rotationQuaternion);
+    }
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_BYTE, 0);
+    requestAnimationFrame(render);
 }
