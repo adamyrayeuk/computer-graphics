@@ -9,6 +9,13 @@
   <div>
     <canvas id="gl-canvas" width="800"" height=" 600"</canvas>
   </div>
+  <div style="margin: 20px">
+    <button id = "Button1">Default view</button>
+    <button id = "Button2">Hydrogen 1 View</button>
+    <button id = "Button3">Hydrogen 2 View</button>
+    <button id = "Button4">Oxygen View</button>
+    <h1 id="view"></h1>
+  </div>
 </body>
 <script id="vertex-shader" type="x-shader/x-vertex">
 #version 300 es
@@ -16,8 +23,6 @@
 in vec4 aPosition;
 
 uniform mat4 uMatrix;
-uniform mat4 uModelViewMatrix;
-uniform mat4 uProjectionMatrix;
 
 void main()
 {
